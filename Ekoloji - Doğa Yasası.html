@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ekosistem Kaderi Simülasyonu</title>
+    <style>
+        /* --- GENEL AYARLAR & DEĞİŞKENLER --- */
+        :root {
+            --primary: #2ecc71; /* Yeşil */
+            --secondary: #3498db; /* Mavi */
+            --danger: #e74c3c; /* Kırmızı */
+            --warning: #f1c40f; /* Sarı */
+            --dark: #2c3e50;
+            --light: #ecf0f1;
+            --glass: rgba(255, 255, 255, 0.25);
+            --glass-border: rgba(255, 255, 255, 0.3);
+            --shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background: linear-gradient(-45deg, #11998e, #38ef7d, #00b09b, #96c93d);
+            background-size: 400% 400%;
+            animation: gradientBG 15s ease infinite;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: var(--dark);
+            overflow-x: hidden;
+        }
+
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* --- ANA KONTEYNER (Glassmorphism) --- */
+        .app-container {
+            width: 90%;
+            max-width: 600px;
+            min-height: 600px;
+            background: var(--glass);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border-radius: 20px;
+            border: 1px solid var(--glass-border);
+            box-shadow: var(--shadow);
+            padding: 2rem;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            transition: all 0.5s ease;
+        }
+
+        /* --- GEÇİŞLER & GİZLEME --- */
+        .screen {
+            display: none; /* Varsayılan gizli */
+            width: 100%;
+            animation: fadeIn 0.8s ease;
+            flex-direction: column;
+            align-items: center;
+            gap: 1.5rem;
+        }
+
+        .screen.active {
+            display: flex;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        h1 { font-size: 2rem; font-weight: 800; color: #fff; text-shadow: 0 2px 4px rgba(0,0,0,0.2); margin-bottom: 0.5rem; }
+        h2 { font-size: 1.5rem; color: var(--dark); margin-bottom: 1rem; }
+        p { font-size: 1.1rem; line-height: 1.6; color: #fff; font-weight: 500; }
+
+        /* --- BUTONLAR --- */
+        .btn {
+            padding: 15px 30px;
+            font-size: 1.2rem;
+            border: none;
+            border-radius: 50px;
+            background: #fff;
+            color: var(--primary);
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 1rem;
+        }
+
+        .btn:hover {
+            transform: translateY(-3px) scale(1.05);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+            background: var(--light);
+        }
+
+        .btn:active { transform: scale(0.95); }
+
+        .btn-choice {
+            width: 100%;
+            padding: 12px;
+            font-size: 1rem;
+            background: rgba(255,255,255,0.9);
+            color: var(--dark);
+            text-transform: none;
+            margin-top: 0.5rem;
+            border-left: 5px solid var(--primary);
+        }
+
+        /* --- SLIDER STİLİ --- */
+        .control-group { width: 100%; margin-bottom: 1rem; text-align: left; }
+        .control-label { font-weight: bold; display: flex; justify-content: space-between; color: #fff; margin-bottom: 5px; }
+        
+        input[type=range] {
+            width: 100%;
+            -webkit-appearance: none;
+            background: transparent;
+        }
+        
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 20px; width: 20px;
+            border-radius: 50%;
+            background: #fff;
+            cursor: pointer;
+            margin-top: -8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        }
+
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%; height: 5px;
+            cursor: pointer;
+            background: rgba(255,255,255,0.5);
+            border-radius: 5px;
+        }
+
+        /* --- GRAFİKLER --- */
+        .stats-container {
+            width: 100%;
+            background: rgba(255,255,255,0.1);
+            padding: 1rem;
+            border-radius: 10px;
+            margin-top: 1rem;
+        }
+
+        .bar-container {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .bar-label { width: 30px; font-size: 1.2rem; }
+        .progress-bg { flex-grow: 1; background: rgba(0,0,0,0.1); height: 10px; border-radius: 5px; margin: 0 10px; overflow: hidden;}
+        .progress-fill { height: 100%; border-radius: 5px; transition: width 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .stat-val { width: 40px; font-weight: bold; color: #fff; text-align: right;}
+
+        /* --- KARTLAR & ROLLER --- */
+        .role-card {
+            background: #fff;
+            padding: 2rem;
+            border-radius: 15px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.15);
+            width: 100%;
+            animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes popIn {
+            0% { transform: scale(0.5); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .role-emoji { font-size: 4rem; margin-bottom: 1rem; display: block; }
+        .role-title { font-size: 1.5rem; font-weight: bold; color: var(--dark); margin-bottom: 0.5rem; }
+        .role-type { font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px; padding: 5px 10px; border-radius: 4px; color: #fff; display: inline-block; margin-bottom: 1rem;}
+        
+        .type-uretici { background-color: var(--primary); }
+        .type-tuketici { background-color: var(--danger); }
+        .type-ayristirici { background-color: #8e44ad; }
+
+        .educational-note {
+            font-size: 0.9rem;
+            background: rgba(255,255,255,0.3);
+            padding: 10px;
+            border-radius: 8px;
+            margin-top: 10px;
+            border-left: 3px solid #fff;
+            text-align: left;
+        }
+
+        /* --- RESPONSIVE --- */
+        @media (max-width: 480px) {
+            h1 { font-size: 1.5rem; }
+            .btn { width: 100%; }
+            .app-container { padding: 1.5rem 1rem; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    
+    <div id="screen-intro" class="screen active">
+        <div style="font-size: 4rem; margin-bottom:1rem;">🌍</div>
+        <h1>Ekosistem Kaderi</h1>
+        <p>Ekosistem dengesini korumak ve doğanın bileşenlerini öğrenmek senin elinde.</p>
+        <div class="educational-note">
+            💡 <strong>Ekosistem:</strong> Canlılar (biyotik) ve cansız çevre (abiyotik) arasındaki ilişki bütünüdür.
+        </div>
+        <button class="btn" onclick="goToScreen('screen-simulation')">▶ Simülasyonu Başlat</button>
+    </div>
+
+    <div id="screen-simulation" class="screen">
+        <h2>🎛 Abiyotik Faktörleri Ayarla</h2>
+        <p style="font-size: 0.9rem;">Sıcaklık, Yağış ve canlı yoğunluğunu değiştirerek dengeyi gözlemle.</p>
+
+        <div class="control-group">
+            <div class="control-label"><span>🌡 Sıcaklık</span> <span id="val-temp">25°C</span></div>
+            <input type="range" id="slider-temp" min="-10" max="50" value="25" oninput="updateSim()">
+        </div>
+        <div class="control-group">
+            <div class="control-label"><span>🌧 Yağış Miktarı</span> <span id="val-rain">Orta</span></div>
+            <input type="range" id="slider-rain" min="0" max="100" value="50" oninput="updateSim()">
+        </div>
+        <div class="control-group">
+            <div class="control-label"><span>🌱 Bitki Örtüsü</span> <span id="val-plant">Normal</span></div>
+            <input type="range" id="slider-plant" min="10" max="100" value="60" oninput="updateSim()">
+        </div>
+        <div class="control-group">
+            <div class="control-label"><span>🦊 Yırtıcı Sayısı</span> <span id="val-predator">Normal</span></div>
+            <input type="range" id="slider-predator" min="5" max="100" value="20" oninput="updateSim()">
+        </div>
+
+        <div class="stats-container">
+            <div class="bar-container">
+                <span class="bar-label">🌿</span>
+                <div class="progress-bg"><div id="bar-producers" class="progress-fill" style="width: 50%; background: #2ecc71;"></div></div>
+                <span id="txt-producers" class="stat-val">50%</span>
+            </div>
+            <div class="bar-container">
+                <span class="bar-label">🐇</span>
+                <div class="progress-bg"><div id="bar-herbivores" class="progress-fill" style="width: 40%; background: #f1c40f;"></div></div>
+                <span id="txt-herbivores" class="stat-val">40%</span>
+            </div>
+            <div class="bar-container">
+                <span class="bar-label">🦊</span>
+                <div class="progress-bg"><div id="bar-carnivores" class="progress-fill" style="width: 20%; background: #e74c3c;"></div></div>
+                <span id="txt-carnivores" class="stat-val">20%</span>
+            </div>
+        </div>
+
+        <button class="btn" style="font-size: 1rem; padding: 10px 20px;" onclick="goToEvent()">⚡ Olay Başlat</button>
+    </div>
+
+    <div id="screen-event" class="screen">
+        <h2 id="event-title">🔥 Beklenmedik Olay!</h2>
+        <div style="font-size: 3rem; margin: 1rem 0;" id="event-icon">⚠️</div>
+        <p id="event-desc">Ekosistemi etkileyen bir durum oluştu.</p>
+        
+        <div id="event-choices" style="width: 100%;">
+            </div>
+
+        <div class="educational-note">
+            💡 Kararların <strong>Popülasyon</strong> (tür sayısı) ve <strong>Komünite</strong> dengesini değiştirecektir.
+        </div>
+    </div>
+
+    <div id="screen-random" class="screen">
+        <h2>🎲 Ekosistem Piyangosu</h2>
+        <p>Bakalım hangi canlı türüyle karşılaşacaksın?</p>
+        
+        <div id="organism-result" class="role-card" style="display: none;">
+            <span id="org-icon" class="role-emoji">❓</span>
+            <h3 id="org-name" class="role-title">Canlı Adı</h3>
+            <span id="org-type" class="role-type">Türü</span>
+            <p id="org-desc" style="color:#555; font-size:0.95rem; margin-top:0.5rem;">Açıklama</p>
+        </div>
+
+        <button id="btn-roll" class="btn" onclick="rollOrganism()">🎲 Rastgele Canlı Seç</button>
+        <button id="btn-finish" class="btn" style="display:none; background: var(--dark); color: #fff;" onclick="finishGame()">🏆 Sonuçları Gör</button>
+    </div>
+
+    <div id="screen-result" class="screen">
+        <h2>🏁 Simülasyon Tamamlandı</h2>
+        <div style="font-size: 5rem; margin: 1rem 0;" id="badge-icon">🎖</div>
+        <h3 id="badge-title">Unvanın Hesaplanıyor...</h3>
+        <p id="badge-desc">Ekosistem kararlarına göre analiz.</p>
+        
+        <div class="educational-note">
+            Bu simülasyonda <strong>Enerji Akışı</strong> ve <strong>Besin Zinciri</strong> üzerindeki etkiyi yönettin.
+        </div>
+
+        <button class="btn" onclick="location.reload()">🔄 Yeniden Oyna</button>
+    </div>
+
+</div>
+
+<script>
+    // --- VERİLER VE YAPILANDIRMA ---
+    
+    // Canlı Havuzu (50'ye yakın örneklem)
+    const organisms = [
+        { name: "Meşe Ağacı", type: "uretici", icon: "🌳", desc: "Fotosentez ile besin üretir. Orman ekosisteminin temelidir." },
+        { name: "Su Yosunu (Alg)", type: "uretici", icon: "🦠", desc: "Sudaki oksijenin çoğunu üretir." },
+        { name: "Papatya", type: "uretici", icon: "🌼", desc: "Güneş ışığını kullanarak enerji depolar." },
+        { name: "Kurt", type: "tuketici", icon: "🐺", desc: "Etçil bir tüketicidir. Hasta hayvanları avlayarak dengeyi sağlar." },
+        { name: "Tavşan", type: "tuketici", icon: "🐇", desc: "Otçul bir tüketicidir. Hızlı ürer." },
+        { name: "Çekirge", type: "tuketici", icon: "🦗", desc: "Bitkilerle beslenen birincil tüketicidir." },
+        { name: "Mantar", type: "ayristirici", icon: "🍄", desc: "Ölü organizmaları çürüterek toprağa mineral kazandırır." },
+        { name: "Solucan", type: "ayristirici", icon: "🪱", desc: "Toprağı havalandırır ve organik atıkları parçalar." },
+        { name: "Kartal", type: "tuketici", icon: "🦅", desc: "Besin zincirinin en üst basamaklarındadır." },
+        { name: "Bal Arısı", type: "tuketici", icon: "🐝", desc: "Polen taşıyarak bitkilerin üremesini sağlar." },
+        { name: "Köpekbalığı", type: "tuketici", icon: "🦈", desc: "Deniz ekosisteminin en üst avcısıdır." },
+        { name: "Bakteri", type: "ayristirici", icon: "🧫", desc: "Madde döngüsünde kritik rol oynar." },
+        { name: "İnek", type: "tuketici", icon: "🐄", desc: "Otçul memelidir." },
+        { name: "Aslan", type: "tuketici", icon: "🦁", desc: "Savan ekosisteminin kralı." },
+        { name: "Buğday", type: "uretici", icon: "🌾", desc: "Temel besin kaynağı olan bir üreticidir." },
+        { name: "Kurbağa", type: "tuketici", icon: "🐸", desc: "Hem suda hem karada yaşar, sineklerle beslenir." },
+        { name: "Baykuş", type: "tuketici", icon: "🦉", desc: "Gece avcısıdır, kemirgen popülasyonunu dengeler." },
+        { name: "Yılan", type: "tuketici", icon: "🐍", desc: "Avcıdır, ekosistemde kemirgenleri kontrol eder." }
+    ];
+
+    // Olay Senaryoları
+    const events = [
+        {
+            title: "🔥 Orman Yangını!",
+            icon: "🔥",
+            desc: "Yazın aşırı sıcaklar orman yangınına sebep oldu. Ne yapacaksın?",
+            choices: [
+                { text: "Kendi haline bırak (Doğal Seleksiyon)", score: "science", effect: "Bitkiler azalır, toprak yenilenir." },
+                { text: "Acil ağaçlandırma yap", score: "engineer", effect: "Bitki sayısı hızla artar." },
+                { text: "Hayvanları güvenli yere taşı", score: "guardian", effect: "Hayvan popülasyonu korunur." }
+            ]
+        },
+        {
+            title: "🦗 İstilacı Tür!",
+            icon: "🦗",
+            desc: "Bölgeye yabancı ve zararlı bir böcek türü geldi. Bitkileri yok ediyor.",
+            choices: [
+                { text: "Kimyasal ilaç kullan", score: "engineer", effect: "Böcekler ölür ama toprak kirlenir." },
+                { text: "Böceği yiyen kuş türü getir", score: "balance", effect: "Biyolojik mücadele ile denge sağlanır." },
+                { text: "İnceleme altına al", score: "science", effect: "Bilgi toplanır ama zarar devam eder." }
+            ]
+        },
+        {
+            title: "💧 Şiddetli Kuraklık",
+            icon: "🏜️",
+            desc: "Yağışlar kesildi. Su kaynakları tükeniyor.",
+            choices: [
+                { text: "Su kanalları inşa et", score: "engineer", effect: "Su yapay olarak getirilir." },
+                { text: "Kuraklığa dayanıklı tohum ek", score: "science", effect: "Adaptasyon süreci hızlanır." },
+                { text: "Suyu sadece hayvanlara ver", score: "guardian", effect: "Bitkiler kurur, hayvanlar yaşar." }
+            ]
+        }
+    ];
+
+    // Oyun Durumu
+    let currentState = {
+        plants: 50,
+        herbivores: 40,
+        carnivores: 20,
+        scoreProfile: { guardian: 0, science: 0, balance: 0, engineer: 0 }
+    };
+
+    // --- FONKSİYONLAR ---
+
+    // Ekran Değiştirme
+    function goToScreen(screenId) {
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        document.getElementById(screenId).classList.add('active');
+        
+        // Ses efekti (hafif titreşim/feedback - mobil için)
+        if(navigator.vibrate) navigator.vibrate(20);
+    }
+
+    // Simülasyon Hesaplama (Slider değişince)
+    function updateSim() {
+        const temp = parseInt(document.getElementById('slider-temp').value);
+        const rain = parseInt(document.getElementById('slider-rain').value);
+        const plantInput = parseInt(document.getElementById('slider-plant').value);
+        const predInput = parseInt(document.getElementById('slider-predator').value);
+
+        // UI Güncelleme
+        document.getElementById('val-temp').innerText = temp + "°C";
+        document.getElementById('val-rain').innerText = rain < 30 ? "Kurak" : (rain > 70 ? "Bol" : "Orta");
+        document.getElementById('val-plant').innerText = plantInput + "%";
+        document.getElementById('val-predator').innerText = predInput + " Adet";
+
+        // Basit Ekoloji Algoritması
+        // 1. Bitki Üretimi: Sıcaklık (ılıman iyidir) ve Yağışa bağlı
+        let plantHealth = plantInput;
+        if (temp > 40 || temp < 0) plantHealth -= 20; // Aşırı sıcaklık zararlı
+        if (rain < 20) plantHealth -= 30; // Kuraklık zararlı
+        if (rain > 80 && temp > 20) plantHealth += 10; // Tropik etki
+        
+        // Sınırlandırma
+        plantHealth = Math.max(0, Math.min(100, plantHealth));
+
+        // 2. Otçullar: Bitkiye bağlı
+        let herbivoreHealth = (plantHealth * 0.8); 
+
+        // 3. Etçiller: Otçullara ve kendi yoğunluklarına bağlı
+        // Çok fazla yırtıcı varsa otçullar azalır
+        if (predInput > 50) herbivoreHealth -= 20;
+        
+        let carnivoreHealth = predInput;
+        // Eğer yiyecek (otçul) azsa etçiller de azalır (simülasyon görseli için)
+        if (herbivoreHealth < 20) carnivoreHealth = Math.min(carnivoreHealth, 30);
+
+        // Değerleri kaydet ve yansıt
+        currentState.plants = plantHealth;
+        currentState.herbivores = Math.max(0, herbivoreHealth);
+        currentState.carnivores = carnivoreHealth;
+
+        updateBars();
+    }
+
+    function updateBars() {
+        document.getElementById('bar-producers').style.width = currentState.plants + "%";
+        document.getElementById('txt-producers').innerText = Math.round(currentState.plants) + "%";
+
+        document.getElementById('bar-herbivores').style.width = currentState.herbivores + "%";
+        document.getElementById('txt-herbivores').innerText = Math.round(currentState.herbivores) + "%";
+
+        document.getElementById('bar-carnivores').style.width = currentState.carnivores + "%";
+        document.getElementById('txt-carnivores').innerText = Math.round(currentState.carnivores) + "%";
+    }
+
+    // Olay Ekranına Geçiş
+    function goToEvent() {
+        // Rastgele olay seç
+        const randomEvent = events[Math.floor(Math.random() * events.length)];
+        
+        document.getElementById('event-title').innerText = randomEvent.title;
+        document.getElementById('event-icon').innerText = randomEvent.icon;
+        document.getElementById('event-desc').innerText = randomEvent.desc;
+
+        const choicesDiv = document.getElementById('event-choices');
+        choicesDiv.innerHTML = ""; // Temizle
+
+        randomEvent.choices.forEach(choice => {
+            const btn = document.createElement('button');
+            btn.className = 'btn btn-choice';
+            btn.innerHTML = choice.text;
+            btn.onclick = () => makeChoice(choice.score, choice.effect);
+            choicesDiv.appendChild(btn);
+        });
+
+        goToScreen('screen-event');
+    }
+
+    // Seçim Yapma
+    function makeChoice(scoreType, effectText) {
+        currentState.scoreProfile[scoreType]++;
+        alert("📢 SONUÇ: " + effectText); // Basit geribildirim
+        goToScreen('screen-random');
+    }
+
+    // Rastgele Canlı Seçimi
+    function rollOrganism() {
+        const btn = document.getElementById('btn-roll');
+        const card = document.getElementById('organism-result');
+        const finishBtn = document.getElementById('btn-finish');
+        
+        // Animasyon efekti için buton pasif
+        btn.disabled = true;
+        btn.innerText = "Seçiliyor...";
+        card.style.display = 'none';
+
+        setTimeout(() => {
+            const org = organisms[Math.floor(Math.random() * organisms.length)];
+            
+            document.getElementById('org-icon').innerText = org.icon;
+            document.getElementById('org-name').innerText = org.name;
+            document.getElementById('org-desc').innerText = org.desc;
+            
+            const typeEl = document.getElementById('org-type');
+            typeEl.className = 'role-type type-' + org.type; // Renk sınıfı
+            typeEl.innerText = org.type.toUpperCase() + (org.type === 'uretici' ? ' (Producer)' : (org.type === 'tuketici' ? ' (Consumer)' : ' (Decomposer)'));
+
+            card.style.display = 'block';
+            btn.style.display = 'none';
+            finishBtn.style.display = 'inline-block';
+            
+            if(navigator.vibrate) navigator.vibrate([50, 50, 50]);
+        }, 800);
+    }
+
+    // Oyunu Bitirme ve Sonuç
+    function finishGame() {
+        goToScreen('screen-result');
+        
+        // En yüksek puanı bul
+        const scores = currentState.scoreProfile;
+        let maxScore = 0;
+        let role = "guardian"; // default
+
+        // Basit mantık: en çok hangi tip seçim yapıldıysa o ol
+        if (scores.science > maxScore) { maxScore = scores.science; role = "science"; }
+        if (scores.balance > maxScore) { maxScore = scores.balance; role = "balance"; }
+        if (scores.engineer > maxScore) { maxScore = scores.engineer; role = "engineer"; }
+        if (scores.guardian >= maxScore) { role = "guardian"; } // Eşitlikte default
+
+        const badges = {
+            guardian: { title: "🌿 Doğa Koruyucu", icon: "🐻", desc: "Senin önceliğin canlıları yaşatmak. Duygusal zekan yüksek ve doğayı olduğu gibi seviyorsun." },
+            science: { title: "🔬 Ekosistem Bilimcisi", icon: "🧬", desc: "Olaylara analitik yaklaşıyorsun. Gözlem yapmayı ve verileri incelemeyi tercih ediyorsun." },
+            balance: { title: "⚖ Denge Uzmanı", icon: "☯️", desc: "Hiçbir tarafı abartmıyorsun. Ekosistemin sürdürülebilirliği senin için en önemlisi." },
+            engineer: { title: "🛠 Ekosistem Mühendisi", icon: "🏗️", desc: "Sorunlara teknolojik ve yapısal çözümler buluyorsun. Müdahale etmekten çekinmiyorsun." }
+        };
+
+        const result = badges[role];
+        document.getElementById('badge-title').innerText = result.title;
+        document.getElementById('badge-icon').innerText = result.icon;
+        document.getElementById('badge-desc').innerText = result.desc;
+    }
+
+    // Başlangıçta çalıştır
+    updateSim();
+
+</script>
+
+</body>
+</html>
